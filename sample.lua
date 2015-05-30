@@ -26,7 +26,7 @@ cmd:text('Options')
 cmd:argument('-model','model checkpoint to use for sampling')
 -- optional parameters
 cmd:option('-seed',123,'random number generator\'s seed')
-cmd:option('-sample',1,' 0 to use max at each timestep, 1 to sample at each timestep')
+cmd:option('-sample',1,' 0 to use max at each timestep, 1 to sample at each timestep, -1 to sample manually')
 cmd:option('-primetext'," ",'used as a prompt to "seed" the state of the LSTM using a given sequence, before we sample.')
 cmd:option('-length',2000,'number of characters to sample')
 cmd:option('-temperature',1,'temperature of sampling')
@@ -89,9 +89,9 @@ for c in seed_text:gmatch'.' do
     if type(current_state) ~= 'table' then current_state = {current_state} end
 end
 
+local text = ''
 -- start sampling/argmaxing
 for i=1, opt.length do
-
     -- softmax from previous timestep
     local next_h = current_state[state_predict_index]
     next_h = next_h / opt.temperature
@@ -101,6 +101,18 @@ for i=1, opt.length do
         -- use argmax
         local _, prev_char_ = log_probs:max(2)
         prev_char = prev_char_:resize(1)
+    elseif opt.sample == -1 then
+        local _, lst = log_probs:sort(2, true)
+        local n_candidates = 20
+        lst:resize(n_candidates)
+        for i=1,n_candidates do
+            io.write(i, ".", ivocab[lst[i]], "  ")
+        end
+        io.write('\n')
+        local idx = io.read("*number")
+        text = text .. ivocab[lst[idx]]
+        io.write('> ', text, '\n')
+        prev_char = torch.Tensor(1):fill(lst[idx])
     else
         -- use sampling
         local probs = torch.exp(log_probs):squeeze()
@@ -111,8 +123,6 @@ for i=1, opt.length do
     local embedding = protos.embed:forward(prev_char)
     current_state = protos.rnn:forward{embedding, unpack(current_state)}
     if type(current_state) ~= 'table' then current_state = {current_state} end
-
-    io.write(ivocab[prev_char[1]])
 end
 io.write('\n') io.flush()
 
