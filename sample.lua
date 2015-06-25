@@ -81,7 +81,7 @@ protos.rnn:evaluate() -- put in eval mode so that dropout works properly
 
 -- do a few seeded timesteps
 print('seeding with ' .. seed_text)
-for c in seed_text:gmatch'.' do
+for c in string.gfind(seed_text, "([%z\1-\127\194-\244][\128-\191]*)") do
     prev_char = torch.Tensor{vocab[c]}
     if opt.gpuid >= 0 then prev_char = prev_char:cuda() end
     local embedding = protos.embed:forward(prev_char)
